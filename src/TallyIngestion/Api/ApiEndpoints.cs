@@ -102,13 +102,12 @@ public static class ApiEndpoints
         }
 
         var bytes = buffer.ToArray();
-        var unsupportedType = UnsupportedFileTypeDetector.Detect(bytes);
-        if (unsupportedType is not null)
+        if (!SupportedFileTypeDetector.IsXmlContent(bytes))
         {
             return ApiResponseHandler.Problem(
                 StatusCodes.Status415UnsupportedMediaType,
                 "unsupported_file_type",
-                $"{unsupportedType} files are not supported. Upload a Tally XML file.",
+                "Only XML file content is accepted. Upload a Tally XML document.",
                 request.Path);
         }
 

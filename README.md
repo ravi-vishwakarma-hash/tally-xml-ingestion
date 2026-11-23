@@ -8,7 +8,7 @@ A small ASP.NET Core service that accepts Tally voucher exports and operation re
 src/TallyIngestion/
 ├── appsettings.json                   Local defaults; contains no connection credentials
 ├── Api/ApiEndpoints.cs                 HTTP routes and request validation
-├── Api/UnsupportedFileTypeDetector.cs identifies common binary uploads from content signatures
+├── Api/SupportedFileTypeDetector.cs    Checks XML content before document parsing
 ├── Application/IImportStore.cs         Persistence contract
 ├── Application/XmlImporter.cs          XML decoding and normalization
 ├── Infrastructure/ImportStore.cs       In-memory and SQL Server persistence
@@ -76,7 +76,7 @@ curl.exe http://localhost:5000/health
 
 Upload returns 201 for a new import and 200 with `duplicate: true` for exact bytes already stored. `ENVELOPE` voucher exports and `RESPONSE` operation results are supported. Business failure reported by Tally does not change successful document processing status. Invalid input produces a structured 4xx response.
 
-Only supported Tally XML content is imported. PDF, legacy Word `.doc`, and Word Open XML `.docx` uploads are detected from their file signatures/package entries and return `415` with code `unsupported_file_type`. The API does not trust the submitted filename or MIME type. Other malformed or unsupported XML returns `400` with code `invalid_xml`.
+Only supported Tally XML content is imported. PDF, legacy Word `.doc`, Word Open XML `.docx`, plain text, and other non-XML content return `415` with code `unsupported_file_type`. A content check recognizes XML encodings and markup; the API does not trust the submitted filename or MIME type. Malformed XML or XML that does not use a supported document shape returns `400` with code `invalid_xml`.
 
 API errors use the standard `application/problem+json` Problem Details shape (`type`, `title`, `status`, `detail`, and `instance`). The `code` extension provides a stable machine-readable application error such as `invalid_xml`, `unsupported_file_type`, or `import_not_found`.
 
