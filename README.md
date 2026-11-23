@@ -6,6 +6,7 @@ A small ASP.NET Core service that accepts Tally voucher exports and operation re
 
 ```text
 src/TallyIngestion/
+├── appsettings.json                   Local defaults; contains no connection credentials
 ├── Api/ApiEndpoints.cs                 HTTP routes and request validation
 ├── Api/UnsupportedFileTypeDetector.cs identifies common binary uploads from content signatures
 ├── Application/IImportStore.cs         Persistence contract
