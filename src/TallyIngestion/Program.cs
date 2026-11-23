@@ -3,6 +3,7 @@ using TallyIngestion.Api;
 using TallyIngestion.Application;
 using TallyIngestion.Infrastructure;
 using TallyIngestion.Models;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +13,13 @@ builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLi
 // Register ASP.NET Core's RFC 7807 response service for consistent application/problem+json output.
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
+{
+    document.Info.Title = "Tally XML Ingestion API";
+    document.Info.Version = "v1";
+    document.Info.Description = "Upload Tally voucher exports and operation responses, then inspect import details and normalized vouchers.";
+    return Task.CompletedTask;
+}));
 
 // A connection string opts into durable SQL Server storage; without one, local development uses memory.
 var connectionString = builder.Configuration.GetConnectionString("Tally");
@@ -32,6 +40,10 @@ var app = builder.Build();
 
 // Catch unhandled request exceptions before endpoint execution and serialize them with the shared ProblemDetails shape.
 app.UseExceptionHandler();
+
+// Generate the OpenAPI v1 document and let Scalar render its interactive API reference.
+app.MapOpenApi();
+app.MapScalarApiReference(options => options.WithTitle("Tally XML Ingestion API"));
 
 // SQL Server creates its tables before requests are accepted; memory storage needs no setup.
 await app.Services.GetRequiredService<IImportStore>().InitializeAsync();

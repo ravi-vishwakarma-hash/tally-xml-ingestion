@@ -11,20 +11,46 @@ public static class ApiEndpoints
     public static IEndpointRouteBuilder MapTallyEndpoints(this IEndpointRouteBuilder endpoints)
     {
         // The health route intentionally avoids touching storage so it can serve as a process liveness check.
-        endpoints.MapGet("/health", () => ApiResponseHandler.Ok(new { status = "healthy" }));
+        endpoints.MapGet("/health", () => ApiResponseHandler.Ok(new { status = "healthy" }))
+            .WithName("HealthCheck")
+            .WithTags("Health")
+            .WithSummary("Check whether the service is running.")
+            .WithDescription("Returns a small status response without querying the import store.")
+            .Produces(StatusCodes.Status200OK);
 
-        endpoints.MapPost("/api/tally/imports", UploadAsync);
+        endpoints.MapPost("/api/tally/imports", UploadAsync)
+            .WithName("UploadTallyImport")
+            .WithTags("Imports")
+            .WithSummary("Upload and process a Tally XML document.")
+            .WithDescription("Accepts an ENVELOPE voucher export or RESPONSE operation result as multipart/form-data using the required field named file. Exact duplicate bytes return the existing import.")
+            .Accepts<UploadFileRequest>("multipart/form-data")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces(StatusCodes.Status413PayloadTooLarge, contentType: "application/problem+json");
 
         // Missing imports return the same structured error shape across both read routes.
         endpoints.MapGet("/api/tally/imports/{id}", async (string id, IImportStore store, HttpContext context, CancellationToken cancellationToken) =>
             await store.GetDetailsAsync(id, cancellationToken) is { } details
                 ? ApiResponseHandler.Ok(details)
-                : ApiResponseHandler.Problem(404, "import_not_found", "The requested import was not found.", context.Request.Path));
+                : ApiResponseHandler.Problem(404, "import_not_found", "The requested import was not found.", context.Request.Path))
+            .WithName("GetTallyImport")
+            .WithTags("Imports")
+            .WithSummary("Get import details and processing diagnostics.")
+            .WithDescription("Returns status, encoding, exact-byte SHA-256, summary, warnings, errors, and Tally business result when applicable. Raw XML is never returned.")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound, contentType: "application/problem+json");
 
         endpoints.MapGet("/api/tally/imports/{id}/vouchers", async (string id, IImportStore store, HttpContext context, CancellationToken cancellationToken) =>
             await store.GetVouchersAsync(id, cancellationToken) is { } vouchers
                 ? ApiResponseHandler.Ok(vouchers)
-                : ApiResponseHandler.Problem(404, "import_not_found", "The requested import was not found.", context.Request.Path));
+                : ApiResponseHandler.Problem(404, "import_not_found", "The requested import was not found.", context.Request.Path))
+            .WithName("GetNormalizedTallyVouchers")
+            .WithTags("Imports")
+            .WithSummary("List normalized vouchers for an import.")
+            .WithDescription("Returns ordered voucher items and a count. Tally response documents return an empty item list.")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound, contentType: "application/problem+json");
 
         return endpoints;
     }
