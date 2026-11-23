@@ -33,7 +33,9 @@ dotnet run --project src/TallyIngestion
 
 The default storage provider is `InMemory`; data is cleared when the process stops. The upload limit defaults to 10 MiB and is configurable using `MaxUploadBytes`.
 
-To use SQL Server locally, create the `TallyIngestion` database and save the provider and connection string in .NET User Secrets. The project launch profile sets the environment to Development, where ASP.NET Core loads the configured secrets:
+### SQL Server with .NET User Secrets
+
+Create the `TallyIngestion` database, then store the provider and connection string in .NET User Secrets. The project already has a `UserSecretsId`, and its launch profile sets `ASPNETCORE_ENVIRONMENT=Development`; ASP.NET Core loads these local secrets automatically when the app starts. No secret values need to be placed in `appsettings.json` or committed to Git.
 
 ```powershell
 dotnet user-secrets set "Storage:Provider" "SqlServer" --project src/TallyIngestion
@@ -41,7 +43,7 @@ dotnet user-secrets set "ConnectionStrings:Tally" "Server=localhost;Database=Tal
 dotnet run --project src/TallyIngestion
 ```
 
-For SQL Server authentication, replace the integrated-security string with one containing `User ID` and `Password`; .NET User Secrets keeps those values outside the repository. User Secrets are for local development only. Configure deployment credentials through the environment or a managed secret store. On startup the service creates its `dbo.Imports` and `dbo.Vouchers` tables if absent. SQL Server mode retains exact raw uploads and atomically enforces a unique SHA-256 hash; it is required when imports must survive restarts.
+For SQL Server authentication, set `ConnectionStrings:Tally` to your server, database, user ID, and password with the same `dotnet user-secrets set` command; the secret stays outside the repository. User Secrets are for local development only. Configure deployment credentials through the environment or a managed secret store. On startup the service creates its `dbo.Imports` and `dbo.Vouchers` tables if absent. SQL Server mode retains exact raw uploads and atomically enforces a unique SHA-256 hash; it is required when imports must survive restarts.
 
 Open `TallyIngestion.sln` in Visual Studio or another .NET IDE to work with both projects. Run tests with `dotnet test TallyIngestion.sln`.
 
