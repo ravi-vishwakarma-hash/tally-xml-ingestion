@@ -27,6 +27,7 @@ public static class ApiEndpoints
             .Produces<UploadImportResponse>(StatusCodes.Status200OK)
             .Produces<UploadImportResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType)
             .ProducesProblem(StatusCodes.Status413PayloadTooLarge);
 
         // Missing imports return the same structured error shape across both read routes.
@@ -101,6 +102,16 @@ public static class ApiEndpoints
         }
 
         var bytes = buffer.ToArray();
+        var unsupportedType = UnsupportedFileTypeDetector.Detect(bytes);
+        if (unsupportedType is not null)
+        {
+            return ApiResponseHandler.Problem(
+                StatusCodes.Status415UnsupportedMediaType,
+                "unsupported_file_type",
+                $"{unsupportedType} files are not supported. Upload a Tally XML file.",
+                request.Path);
+        }
+
         try
         {
             var parsed = importer.Parse(bytes);
