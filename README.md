@@ -23,6 +23,7 @@ The startup file only configures dependencies and maps the API. XML parsing, end
 Requires the .NET 10 SDK. In-memory storage is the default for local development:
 
 ```powershell
+dotnet build TallyIngestion.sln
 dotnet run --project src/TallyIngestion
 ```
 
@@ -38,7 +39,7 @@ dotnet run --project src/TallyIngestion
 
 On startup the service creates its `dbo.Imports` and `dbo.Vouchers` tables if absent. Use SQL Server authentication if Windows authentication does not fit your environment; keep credentials in user secrets or a secret manager. The SQL Server mode retains the exact raw uploads and atomically enforces a unique SHA-256 hash. It requires SQL Server and is the mode to use when imports must survive restarts.
 
-Run tests with `dotnet test tests/TallyIngestion.Tests`.
+Open `TallyIngestion.sln` in Visual Studio or another .NET IDE to work with both projects. Run tests with `dotnet test TallyIngestion.sln`.
 
 ## OpenAPI and Scalar docs
 
