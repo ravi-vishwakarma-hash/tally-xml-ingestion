@@ -18,6 +18,10 @@ src/TallyIngestion/
 
 The startup file only configures dependencies and maps the API. XML parsing, endpoint handling, persistence, and response models live in their own files. `ApiResponseHandler` creates the shared success and Problem Details responses, while `GlobalExceptionHandler` logs uncaught server exceptions and returns a generic problem with a trace ID. Comments explain the important validation, ownership, security, and idempotency decisions; routine syntax is left readable without repetitive line-by-line narration.
 
+## Package management
+
+NuGet package versions are centralized in `Directory.Packages.props`; project files declare package names without repeating version numbers. Update package versions in that file so the service and tests use one consistent dependency set.
+
 ## Run locally
 
 Requires the .NET 10 SDK. In-memory storage is the default for local development:
@@ -29,15 +33,15 @@ dotnet run --project src/TallyIngestion
 
 The default storage provider is `InMemory`; data is cleared when the process stops. The upload limit defaults to 10 MiB and is configurable using `MaxUploadBytes`.
 
-To use SQL Server, create the `TallyIngestion` database, set the connection string, and select the provider:
+To use SQL Server locally, create the `TallyIngestion` database and save the provider and connection string in .NET User Secrets. The project launch profile sets the environment to Development, where ASP.NET Core loads the configured secrets:
 
 ```powershell
-$env:Storage__Provider = "SqlServer"
-$env:ConnectionStrings__Tally = "Server=localhost;Database=TallyIngestion;Integrated Security=True;TrustServerCertificate=True"
+dotnet user-secrets set "Storage:Provider" "SqlServer" --project src/TallyIngestion
+dotnet user-secrets set "ConnectionStrings:Tally" "Server=localhost;Database=TallyIngestion;Integrated Security=True;TrustServerCertificate=True" --project src/TallyIngestion
 dotnet run --project src/TallyIngestion
 ```
 
-On startup the service creates its `dbo.Imports` and `dbo.Vouchers` tables if absent. Use SQL Server authentication if Windows authentication does not fit your environment; keep credentials in user secrets or a secret manager. The SQL Server mode retains the exact raw uploads and atomically enforces a unique SHA-256 hash. It requires SQL Server and is the mode to use when imports must survive restarts.
+For SQL Server authentication, replace the integrated-security string with one containing `User ID` and `Password`; .NET User Secrets keeps those values outside the repository. User Secrets are for local development only. Configure deployment credentials through the environment or a managed secret store. On startup the service creates its `dbo.Imports` and `dbo.Vouchers` tables if absent. SQL Server mode retains exact raw uploads and atomically enforces a unique SHA-256 hash; it is required when imports must survive restarts.
 
 Open `TallyIngestion.sln` in Visual Studio or another .NET IDE to work with both projects. Run tests with `dotnet test TallyIngestion.sln`.
 
