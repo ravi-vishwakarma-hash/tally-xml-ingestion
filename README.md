@@ -20,7 +20,7 @@ The startup file only configures dependencies and maps the API. XML parsing, end
 
 ## Run locally
 
-Requires the .NET 11 SDK. In-memory storage is the default for local development:
+Requires the .NET 10 SDK. In-memory storage is the default for local development:
 
 ```powershell
 dotnet run --project src/TallyIngestion
