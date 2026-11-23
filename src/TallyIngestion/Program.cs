@@ -9,6 +9,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Keep the upload limit configurable so deployments can control request memory and processing cost.
 var maxUploadBytes = builder.Configuration.GetValue<long>("MaxUploadBytes", 10 * 1024 * 1024);
 builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = maxUploadBytes + 1024 * 1024);
+// Register ASP.NET Core's RFC 7807 response service for consistent application/problem+json output.
+builder.Services.AddProblemDetails();
 
 // A connection string opts into durable SQL Server storage; without one, local development uses memory.
 var connectionString = builder.Configuration.GetConnectionString("Tally");

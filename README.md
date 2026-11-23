@@ -51,6 +51,8 @@ curl.exe http://localhost:5000/health
 
 Upload returns 201 for a new import and 200 with `duplicate: true` for exact bytes already stored. `ENVELOPE` voucher exports and `RESPONSE` operation results are supported. Business failure reported by Tally does not change successful document processing status. Invalid input produces a structured 4xx response.
 
+API errors use the standard `application/problem+json` Problem Details shape (`type`, `title`, `status`, `detail`, and `instance`). The `code` extension provides a stable machine-readable application error such as `invalid_xml` or `import_not_found`.
+
 ## Data and design
 
 In-memory mode stores imports for the lifetime of the process and is intended only for quick local runs. SQL Server stores import metadata, exact uploaded bytes, and ordered normalized voucher JSON through Dapper and parameterized SQL. Voucher JSON captures each nested allocation under its source parent; the composite voucher key retains order. A unique SHA-256 constraint and serializable transaction with a key-range lock make duplicate detection and insert atomic. Keeping normalized nested objects as JSON avoids a large collection of mostly mechanical relational tables while preserving the inspectable relationships required by the contract. Raw XML is never returned from API endpoints.
