@@ -1,11 +1,13 @@
 using TallyIngestion.Api;
 using Xunit;
 
+/// <summary>Checks the shared error response body contract used by endpoints and global exception handling.</summary>
 public sealed class ApiResponseHandlerTests
 {
     [Fact]
     public void ProblemDetailsIncludeHttpFieldsAndApplicationCode()
     {
+        // Use a not-found response to verify both RFC Problem Details fields and application extensions.
         var problem = ApiResponseHandler.CreateProblemDetails(
             404,
             "import_not_found",
@@ -13,6 +15,7 @@ public sealed class ApiResponseHandlerTests
             "/api/tally/imports/missing",
             "trace-123");
 
+        // Keep status, human-readable details, request instance, code, and trace correlation available to clients.
         Assert.Equal("about:blank", problem.Type);
         Assert.Equal("Not Found", problem.Title);
         Assert.Equal(404, problem.Status);
