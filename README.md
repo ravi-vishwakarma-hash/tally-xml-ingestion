@@ -2,6 +2,22 @@
 
 A small ASP.NET Core service that accepts Tally voucher exports and operation responses, retains exact uploaded bytes, and exposes normalized voucher data. The parser reads only direct children for each field and preserves repeated entries, nested allocations, source order, and source financial strings.
 
+## Code layout
+
+```text
+src/TallyIngestion/
+├── Api/ApiEndpoints.cs                 HTTP routes and request validation
+├── Application/IImportStore.cs         Persistence contract
+├── Application/XmlImporter.cs          XML decoding and normalization
+├── Infrastructure/ImportStore.cs       In-memory and SQL Server persistence
+└── Models/
+    ├── ImportModels.cs                 Import and Tally response models
+    ├── SaveResult.cs                    Persistence result model
+    └── Vouchers/VoucherModels.cs        Voucher and nested entry models
+```
+
+The startup file only configures dependencies and maps the API. XML parsing, endpoint handling, persistence, and response models live in their own files. Comments explain the important validation, ownership, security, and idempotency decisions; routine syntax is left readable without repetitive line-by-line narration.
+
 ## Run locally
 
 Requires the .NET 11 SDK. In-memory storage is the default for local development:

@@ -1,6 +1,8 @@
 using System.Text;
 using System.Security.Cryptography;
 using System.Text.Json;
+using TallyIngestion.Application;
+using TallyIngestion.Infrastructure;
 using Xunit;
 
 public sealed class XmlImporterTests
