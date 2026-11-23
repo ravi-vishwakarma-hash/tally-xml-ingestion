@@ -42,7 +42,7 @@ Run tests with `dotnet test tests/TallyIngestion.Tests`.
 
 ## OpenAPI and Scalar docs
 
-After starting the service, open the Scalar API reference at `http://localhost:5000/scalar`. The generated OpenAPI JSON is at `http://localhost:5000/openapi/v1.json`. The document describes the multipart `file` field, success and error status codes, import details, normalized voucher routes, and health check.
+After starting the service, open the Scalar API reference at `http://localhost:5000/docs`. The generated OpenAPI JSON is at `http://localhost:5000/openapi/v1.json`. The document describes the multipart `file` field, success and error status codes, import details, normalized voucher routes, and health check.
 
 ## API
 

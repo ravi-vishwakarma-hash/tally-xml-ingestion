@@ -43,7 +43,7 @@ app.UseExceptionHandler();
 
 // Generate the OpenAPI v1 document and let Scalar render its interactive API reference.
 app.MapOpenApi();
-app.MapScalarApiReference(options => options.WithTitle("Tally XML Ingestion API"));
+app.MapScalarApiReference("/docs", options => options.WithTitle("Tally XML Ingestion API"));
 
 // SQL Server creates its tables before requests are accepted; memory storage needs no setup.
 await app.Services.GetRequiredService<IImportStore>().InitializeAsync();
