@@ -76,7 +76,7 @@ curl.exe http://localhost:5000/health
 
 Upload returns 201 for a new import and 200 with `duplicate: true` for exact bytes already stored. `ENVELOPE` voucher exports and `RESPONSE` operation results are supported. Business failure reported by Tally does not change successful document processing status. Invalid input produces a structured 4xx response.
 
-Only supported Tally XML content is imported. PDF, legacy Word `.doc`, Word Open XML `.docx`, plain text, and other non-XML content return `415` with code `unsupported_file_type`. A content check recognizes XML encodings and markup; the API does not trust the submitted filename or MIME type. Malformed XML or XML that does not use a supported document shape returns `400` with code `invalid_xml`.
+Only files with a `.xml` filename extension and supported Tally XML content are imported. The extension is checked case-insensitively, and the content is validated independently; the filename alone and the MIME type are not trusted. PDF, legacy Word `.doc`, Word Open XML `.docx`, plain text, and other non-XML content return `415` with code `unsupported_file_type`. Malformed XML or XML that does not use a supported document shape returns `400` with code `invalid_xml`.
 
 API errors use the standard `application/problem+json` Problem Details shape (`type`, `title`, `status`, `detail`, and `instance`). The `code` extension provides a stable machine-readable application error such as `invalid_xml`, `unsupported_file_type`, or `import_not_found`.
 

@@ -22,7 +22,7 @@ public static class ApiEndpoints
             .WithName("UploadTallyImport")
             .WithTags("Imports")
             .WithSummary("Upload and process a Tally XML document.")
-            .WithDescription("Accepts an ENVELOPE voucher export or RESPONSE operation result as multipart/form-data using the required field named file. Exact duplicate bytes return the existing import.")
+            .WithDescription("Requires a filename ending in .xml and accepts an ENVELOPE voucher export or RESPONSE operation result as multipart/form-data using the required field named file. The XML bytes are validated independently of the filename and MIME type.")
             .Accepts<UploadFileRequest>("multipart/form-data")
             .Produces<UploadImportResponse>(StatusCodes.Status200OK)
             .Produces<UploadImportResponse>(StatusCodes.Status201Created)
@@ -90,6 +90,15 @@ public static class ApiEndpoints
         if (file.Length > options.MaxBytes)
         {
             return ApiResponseHandler.Problem(413, "upload_too_large", "Upload exceeds the configured size limit.", request.Path);
+        }
+
+        if (!SupportedFileTypeDetector.HasXmlExtension(file.FileName))
+        {
+            return ApiResponseHandler.Problem(
+                StatusCodes.Status415UnsupportedMediaType,
+                "unsupported_file_type",
+                "Only files with the .xml extension are accepted.",
+                request.Path);
         }
 
         // Hash and parse the exact same byte sequence so identity never depends on filenames or XML formatting.

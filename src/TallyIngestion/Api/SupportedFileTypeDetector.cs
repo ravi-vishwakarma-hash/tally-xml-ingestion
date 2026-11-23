@@ -9,6 +9,11 @@ public static class SupportedFileTypeDetector
     private static readonly byte[] Utf16LittleEndianBom = [0xFF, 0xFE];
     private static readonly byte[] Utf16BigEndianBom = [0xFE, 0xFF];
 
+    /// <summary>Checks the submitted filename for the required XML extension.</summary>
+    public static bool HasXmlExtension(string? fileName) =>
+        !string.IsNullOrWhiteSpace(fileName) &&
+        Path.GetExtension(fileName).Equals(".xml", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Returns true when the content decodes as supported text encoding and begins with XML markup.</summary>
     public static bool IsXmlContent(byte[] content)
     {

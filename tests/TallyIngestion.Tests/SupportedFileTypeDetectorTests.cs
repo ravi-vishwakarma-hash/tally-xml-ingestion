@@ -3,9 +3,22 @@ using System.Text;
 using TallyIngestion.Api;
 using Xunit;
 
-/// <summary>Verifies that only XML-like byte content proceeds to the Tally XML parser.</summary>
+/// <summary>Verifies the required XML filename extension and XML-like byte content.</summary>
 public sealed class SupportedFileTypeDetectorTests
 {
+    [Theory]
+    [InlineData("voucher.xml", true)]
+    [InlineData("VOUCHER.XML", true)]
+    [InlineData("voucher.txt", false)]
+    [InlineData("voucher.docx", false)]
+    [InlineData("voucher.xml.backup", false)]
+    [InlineData("", false)]
+    public void ChecksTheXmlFilenameExtension(string fileName, bool expected)
+    {
+        // Require the XML suffix case-insensitively without relying on it as proof of XML content.
+        Assert.Equal(expected, SupportedFileTypeDetector.HasXmlExtension(fileName));
+    }
+
     [Fact]
     public void AllowsUtf8AndUtf8BomXmlContent()
     {
