@@ -16,7 +16,7 @@ src/TallyIngestion/
     └── Vouchers/VoucherModels.cs        Voucher and nested entry models
 ```
 
-The startup file only configures dependencies and maps the API. XML parsing, endpoint handling, persistence, and response models live in their own files. Comments explain the important validation, ownership, security, and idempotency decisions; routine syntax is left readable without repetitive line-by-line narration.
+The startup file only configures dependencies and maps the API. XML parsing, endpoint handling, persistence, and response models live in their own files. `ApiResponseHandler` creates the shared success and Problem Details responses, while `GlobalExceptionHandler` logs uncaught server exceptions and returns a generic problem with a trace ID. Comments explain the important validation, ownership, security, and idempotency decisions; routine syntax is left readable without repetitive line-by-line narration.
 
 ## Run locally
 

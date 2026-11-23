@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using Microsoft.AspNetCore.Mvc;
 using TallyIngestion.Application;
 using TallyIngestion.Models;
 
@@ -12,20 +11,20 @@ public static class ApiEndpoints
     public static IEndpointRouteBuilder MapTallyEndpoints(this IEndpointRouteBuilder endpoints)
     {
         // The health route intentionally avoids touching storage so it can serve as a process liveness check.
-        endpoints.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+        endpoints.MapGet("/health", () => ApiResponseHandler.Ok(new { status = "healthy" }));
 
         endpoints.MapPost("/api/tally/imports", UploadAsync);
 
         // Missing imports return the same structured error shape across both read routes.
         endpoints.MapGet("/api/tally/imports/{id}", async (string id, IImportStore store, HttpContext context, CancellationToken cancellationToken) =>
             await store.GetDetailsAsync(id, cancellationToken) is { } details
-                ? Results.Json(details)
-                : ApiError(404, "import_not_found", "The requested import was not found.", context.Request.Path));
+                ? ApiResponseHandler.Ok(details)
+                : ApiResponseHandler.Problem(404, "import_not_found", "The requested import was not found.", context.Request.Path));
 
         endpoints.MapGet("/api/tally/imports/{id}/vouchers", async (string id, IImportStore store, HttpContext context, CancellationToken cancellationToken) =>
             await store.GetVouchersAsync(id, cancellationToken) is { } vouchers
-                ? Results.Json(vouchers)
-                : ApiError(404, "import_not_found", "The requested import was not found.", context.Request.Path));
+                ? ApiResponseHandler.Ok(vouchers)
+                : ApiResponseHandler.Problem(404, "import_not_found", "The requested import was not found.", context.Request.Path));
 
         return endpoints;
     }
@@ -41,7 +40,7 @@ public static class ApiEndpoints
         // Reject the wrong media type before asking ASP.NET to parse a multipart body.
         if (!request.HasFormContentType)
         {
-            return ApiError(400, "invalid_content_type", "Expected multipart/form-data with a file field.", request.Path);
+            return ApiResponseHandler.Problem(400, "invalid_content_type", "Expected multipart/form-data with a file field.", request.Path);
         }
 
         IFormCollection form;
@@ -51,19 +50,19 @@ public static class ApiEndpoints
         }
         catch (InvalidDataException)
         {
-            return ApiError(413, "upload_too_large", "Upload exceeds the configured size limit.", request.Path);
+            return ApiResponseHandler.Problem(413, "upload_too_large", "Upload exceeds the configured size limit.", request.Path);
         }
 
         // The assignment contract requires the multipart field to be named exactly "file".
         var file = form.Files.GetFile("file");
         if (file is null || file.Length == 0)
         {
-            return ApiError(400, "file_required", "A non-empty multipart file field named 'file' is required.", request.Path);
+            return ApiResponseHandler.Problem(400, "file_required", "A non-empty multipart file field named 'file' is required.", request.Path);
         }
 
         if (file.Length > options.MaxBytes)
         {
-            return ApiError(413, "upload_too_large", "Upload exceeds the configured size limit.", request.Path);
+            return ApiResponseHandler.Problem(413, "upload_too_large", "Upload exceeds the configured size limit.", request.Path);
         }
 
         // Hash and parse the exact same byte sequence so identity never depends on filenames or XML formatting.
@@ -72,7 +71,7 @@ public static class ApiEndpoints
         await input.CopyToAsync(buffer, cancellationToken);
         if (buffer.Length > options.MaxBytes)
         {
-            return ApiError(413, "upload_too_large", "Upload exceeds the configured size limit.", request.Path);
+            return ApiResponseHandler.Problem(413, "upload_too_large", "Upload exceeds the configured size limit.", request.Path);
         }
 
         var bytes = buffer.ToArray();
@@ -83,36 +82,12 @@ public static class ApiEndpoints
             var result = await store.SaveAsync(parsed, bytes, contentHash, cancellationToken);
 
             // Existing bytes are a successful idempotent lookup; only a new import receives 201 Created.
-            return Results.Json(result.Body, statusCode: result.Duplicate ? 200 : 201);
+            return ApiResponseHandler.Json(result.Body, result.Duplicate ? 200 : 201);
         }
         catch (InvalidDataException exception)
         {
             // Parser details are intentionally replaced by a safe message rather than leaking stack traces or paths.
-            return ApiError(400, "invalid_xml", exception.Message, request.Path);
+            return ApiResponseHandler.Problem(400, "invalid_xml", exception.Message, request.Path);
         }
-    }
-
-    /// <summary>Builds the common structured API error response.</summary>
-    private static IResult ApiError(int statusCode, string code, string message, PathString instance)
-    {
-        // RFC 7807 fields describe the HTTP failure; the extension preserves the machine-readable error code.
-        var problem = new ProblemDetails
-        {
-            Type = "about:blank",
-            Title = statusCode switch
-            {
-                400 => "Bad Request",
-                404 => "Not Found",
-                413 => "Payload Too Large",
-                _ => "Request Failed"
-            },
-            Status = statusCode,
-            Detail = message,
-            Instance = instance
-        };
-        problem.Extensions["code"] = code;
-
-        // The framework writes this as application/problem+json and applies standard ProblemDetails handling.
-        return Results.Problem(problem);
     }
 }

@@ -11,6 +11,7 @@ var maxUploadBytes = builder.Configuration.GetValue<long>("MaxUploadBytes", 10 *
 builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = maxUploadBytes + 1024 * 1024);
 // Register ASP.NET Core's RFC 7807 response service for consistent application/problem+json output.
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 // A connection string opts into durable SQL Server storage; without one, local development uses memory.
 var connectionString = builder.Configuration.GetConnectionString("Tally");
@@ -28,6 +29,9 @@ builder.Services.AddSingleton<XmlImporter>();
 builder.Services.AddSingleton(new UploadOptions(maxUploadBytes));
 
 var app = builder.Build();
+
+// Catch unhandled request exceptions before endpoint execution and serialize them with the shared ProblemDetails shape.
+app.UseExceptionHandler();
 
 // SQL Server creates its tables before requests are accepted; memory storage needs no setup.
 await app.Services.GetRequiredService<IImportStore>().InitializeAsync();
