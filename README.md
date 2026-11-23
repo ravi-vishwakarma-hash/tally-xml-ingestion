@@ -44,6 +44,14 @@ Run tests with `dotnet test tests/TallyIngestion.Tests`.
 
 After starting the service, open the Scalar API reference at `http://localhost:5000/docs`. The generated OpenAPI JSON is at `http://localhost:5000/openapi/v1.json`. The document describes the multipart `file` field, success and error status codes, import details, normalized voucher routes, and health check.
 
+### Postman
+
+Import [Tally-XML-Ingestion.postman_collection.json](postman/Tally-XML-Ingestion.postman_collection.json) into Postman. The collection is grouped by Health and Imports and includes saved examples for successful uploads, duplicate uploads, normalized results, and common errors. It does not contain credentials; this API currently has no authentication requirement.
+
+Set the collection variable `baseUrl` to the service URL if it differs from `http://localhost:5000`. In **Upload Tally XML**, choose the sanitized `requirement/fixtures/01_receipt_with_allocations.xml` file for the `file` form-data field (Postman may ask you to select the local file after import). The upload test stores the returned `importId` in a collection variable, which the two read requests use automatically. To try the Tally business failure case, upload `requirement/fixtures/03_tally_error_response.xml`; the HTTP import still completes successfully and its business result appears under `tallyResponse`.
+
+The API uses JSON responses with `Accept: application/json`; errors use `application/problem+json` and include a stable `code` extension. Upload requests must be `multipart/form-data` with a non-empty `file` field. There are no query parameters or authentication headers. The only path parameter is `importId` on the two import read routes. No secrets or production data are included in the examples.
+
 ## API
 
 ```powershell

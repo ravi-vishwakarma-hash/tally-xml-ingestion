@@ -24,10 +24,10 @@ public static class ApiEndpoints
             .WithSummary("Upload and process a Tally XML document.")
             .WithDescription("Accepts an ENVELOPE voucher export or RESPONSE operation result as multipart/form-data using the required field named file. Exact duplicate bytes return the existing import.")
             .Accepts<UploadFileRequest>("multipart/form-data")
-            .Produces(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status201Created)
-            .Produces(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-            .Produces(StatusCodes.Status413PayloadTooLarge, contentType: "application/problem+json");
+            .Produces<UploadImportResponse>(StatusCodes.Status200OK)
+            .Produces<UploadImportResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status413PayloadTooLarge);
 
         // Missing imports return the same structured error shape across both read routes.
         endpoints.MapGet("/api/tally/imports/{id}", async (string id, IImportStore store, HttpContext context, CancellationToken cancellationToken) =>
@@ -38,8 +38,8 @@ public static class ApiEndpoints
             .WithTags("Imports")
             .WithSummary("Get import details and processing diagnostics.")
             .WithDescription("Returns status, encoding, exact-byte SHA-256, summary, warnings, errors, and Tally business result when applicable. Raw XML is never returned.")
-            .Produces(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound, contentType: "application/problem+json");
+            .Produces<ImportDetailsResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         endpoints.MapGet("/api/tally/imports/{id}/vouchers", async (string id, IImportStore store, HttpContext context, CancellationToken cancellationToken) =>
             await store.GetVouchersAsync(id, cancellationToken) is { } vouchers
@@ -49,8 +49,8 @@ public static class ApiEndpoints
             .WithTags("Imports")
             .WithSummary("List normalized vouchers for an import.")
             .WithDescription("Returns ordered voucher items and a count. Tally response documents return an empty item list.")
-            .Produces(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound, contentType: "application/problem+json");
+            .Produces<VoucherListResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         return endpoints;
     }

@@ -1,0 +1,66 @@
+{
+  "info": {
+    "_postman_id": "bfa4240e-0740-4e02-ad68-8b920d0fae11",
+    "name": "Tally XML Ingestion API",
+    "description": "Explore the Tally XML ingestion API. Set baseUrl to the running service (default http://localhost:5000). Upload the sanitized fixture with the multipart field named file, then use the returned importId for the read requests. No authentication is configured. Error examples use RFC 7807 Problem Details with an application code extension.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "importId", "value": "replace-with-import-id" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "description": "Process liveness check; does not query storage.",
+      "item": [
+        {
+          "name": "Check service health",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/health", "description": "Returns 200 when the process is running." },
+          "response": [
+            { "name": "200 Healthy", "originalRequest": { "method": "GET", "url": "{{baseUrl}}/health" }, "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"status\": \"healthy\"\n}" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Imports",
+      "description": "Upload XML imports and inspect their metadata and normalized vouchers.",
+      "item": [
+        {
+          "name": "Upload Tally XML",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json, application/problem+json" }],
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "requirement/fixtures/01_receipt_with_allocations.xml", "description": "Required non-empty Tally ENVELOPE or RESPONSE XML file. In Postman, select this sanitized fixture or another XML file." }] },
+            "url": "{{baseUrl}}/api/tally/imports",
+            "description": "Content-Type is set by Postman as multipart/form-data with a boundary. The required field is exactly file. Maximum size defaults to 10 MiB (configurable via MaxUploadBytes). New content returns 201; exact-byte duplicates return 200. A successful response stores importId in the collection variable."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Upload succeeded or returned an exact-byte duplicate', function () { pm.expect([200, 201]).to.include(pm.response.code); });", "if ([200, 201].includes(pm.response.code)) { const body = pm.response.json(); pm.collectionVariables.set('importId', body.importId); pm.test('Response includes import identity and summary', function () { pm.expect(body.importId).to.be.a('string'); pm.expect(body.summary).to.have.property('vouchers'); }); }"] } }],
+          "response": [
+            { "name": "201 Created - new voucher import", "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/tally/imports" }, "status": "Created", "code": 201, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"importId\": \"8b97fc31f0a848d5a78b0747ce1afc12\",\n  \"documentType\": \"voucherExport\",\n  \"status\": \"completed\",\n  \"duplicate\": false,\n  \"summary\": { \"vouchers\": 1, \"ledgerEntries\": 2, \"inventoryEntries\": 0, \"warnings\": 0, \"errors\": 0 }\n}" },
+            { "name": "200 OK - exact-byte duplicate", "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/tally/imports" }, "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"importId\": \"8b97fc31f0a848d5a78b0747ce1afc12\",\n  \"documentType\": \"voucherExport\",\n  \"status\": \"completed\",\n  \"duplicate\": true,\n  \"summary\": { \"vouchers\": 1, \"ledgerEntries\": 2, \"inventoryEntries\": 0, \"warnings\": 0, \"errors\": 0 }\n}" },
+            { "name": "400 Bad Request - invalid XML", "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/tally/imports" }, "status": "Bad Request", "code": 400, "header": [{ "key": "Content-Type", "value": "application/problem+json" }], "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Bad Request\",\n  \"status\": 400,\n  \"detail\": \"The uploaded file is not well-formed supported XML.\",\n  \"instance\": \"/api/tally/imports\",\n  \"code\": \"invalid_xml\"\n}" },
+            { "name": "413 Payload Too Large", "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/tally/imports" }, "status": "Payload Too Large", "code": 413, "header": [{ "key": "Content-Type", "value": "application/problem+json" }], "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Payload Too Large\",\n  \"status\": 413,\n  \"detail\": \"Upload exceeds the configured size limit.\",\n  \"instance\": \"/api/tally/imports\",\n  \"code\": \"upload_too_large\"\n}" }
+          ]
+        },
+        {
+          "name": "Get import details",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json, application/problem+json" }], "url": "{{baseUrl}}/api/tally/imports/{{importId}}", "description": "Returns import metadata, SHA-256 of the exact uploaded bytes, summary, warnings, errors, and optional Tally business result. Raw XML is never returned. Path parameter: importId. No query parameters." },
+          "response": [
+            { "name": "200 OK - voucher import details", "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/tally/imports/{{importId}}" }, "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"importId\": \"8b97fc31f0a848d5a78b0747ce1afc12\",\n  \"contentHash\": \"d5f8f4b98a58e1c84a70d78f2eb647b83722ce199f94eb9e4fd32a7599d00c11\",\n  \"documentType\": \"voucherExport\",\n  \"status\": \"completed\",\n  \"detectedEncoding\": \"UTF-8\",\n  \"summary\": { \"vouchers\": 1, \"ledgerEntries\": 2, \"inventoryEntries\": 0, \"warnings\": 0, \"errors\": 0 },\n  \"warnings\": [],\n  \"errors\": [],\n  \"tallyResponse\": null\n}" },
+            { "name": "404 Not Found", "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/tally/imports/{{importId}}" }, "status": "Not Found", "code": 404, "header": [{ "key": "Content-Type", "value": "application/problem+json" }], "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Not Found\",\n  \"status\": 404,\n  \"detail\": \"The requested import was not found.\",\n  \"instance\": \"/api/tally/imports/replace-with-import-id\",\n  \"code\": \"import_not_found\"\n}" }
+          ]
+        },
+        {
+          "name": "List normalized vouchers",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json, application/problem+json" }], "url": "{{baseUrl}}/api/tally/imports/{{importId}}/vouchers", "description": "Returns vouchers in source order. Tally RESPONSE documents return an empty items array. Path parameter: importId. No query parameters." },
+          "response": [
+            { "name": "200 OK - normalized voucher items", "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/tally/imports/{{importId}}/vouchers" }, "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"items\": [\n    {\n      \"source\": { \"importId\": \"8b97fc31f0a848d5a78b0747ce1afc12\", \"contentHash\": \"d5f8f4b98a58e1c84a70d78f2eb647b83722ce199f94eb9e4fd32a7599d00c11\", \"voucherIndex\": 0 },\n      \"attributes\": { \"vchtype\": \"Receipt\", \"action\": \"Create\" },\n      \"date\": \"20260715\", \"voucherType\": \"Receipt\", \"voucherNumber\": \"RCP-DEMO-001\", \"partyLedgerName\": \"Demo Customer\", \"narration\": \"Sanitized receipt fixture\",\n      \"ledgerEntries\": [\n        { \"sourceTag\": \"ALLLEDGERENTRIES.LIST\", \"ledgerName\": \"Demo Bank\", \"isDeemedPositive\": \"No\", \"amount\": \"1250.00\", \"billAllocations\": [], \"bankAllocations\": [{ \"date\": \"20260715\", \"name\": \"UTR-DEMO-001\", \"transactionType\": \"Inter Bank Transfer\", \"amount\": \"1250.00\" }], \"rateDetails\": [] },\n        { \"sourceTag\": \"ALLLEDGERENTRIES.LIST\", \"ledgerName\": \"Demo Customer\", \"isDeemedPositive\": \"Yes\", \"amount\": \"-1250.00\", \"billAllocations\": [{ \"name\": \"INV-DEMO-001\", \"billType\": \"Agst Ref\", \"amount\": \"-1250.00\" }], \"bankAllocations\": [], \"rateDetails\": [] }\n      ],\n      \"inventoryEntries\": [], \"warnings\": []\n    }\n  ],\n  \"count\": 1\n}" },
+            { "name": "404 Not Found", "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/tally/imports/{{importId}}/vouchers" }, "status": "Not Found", "code": 404, "header": [{ "key": "Content-Type", "value": "application/problem+json" }], "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Not Found\",\n  \"status\": 404,\n  \"detail\": \"The requested import was not found.\",\n  \"instance\": \"/api/tally/imports/replace-with-import-id/vouchers\",\n  \"code\": \"import_not_found\"\n}" }
+          ]
+        }
+      ]
+    }
+  ]
+}
