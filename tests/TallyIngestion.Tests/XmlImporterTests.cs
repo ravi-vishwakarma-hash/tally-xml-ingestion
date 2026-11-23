@@ -86,6 +86,18 @@ public sealed class XmlImporterTests
         Assert.NotEmpty(parsed.Vouchers[0].Warnings);
     }
 
+    [Theory]
+    [InlineData("not an XML document")]
+    [InlineData("<html />")]
+    [InlineData("<ENVELOPE />")]
+    public void NonXmlAndUnsupportedXmlDocumentsAreRejected(string source)
+    {
+        // File names and extensions do not establish type; only supported XML document structures are accepted.
+        var bytes = Encoding.UTF8.GetBytes(source);
+
+        Assert.Throws<InvalidDataException>(() => importer.Parse(bytes));
+    }
+
     [Fact]
     public void UnknownNestedAndResponseNodesAreReportedAtTheirOwningScope()
     {

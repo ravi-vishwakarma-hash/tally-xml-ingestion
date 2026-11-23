@@ -77,22 +77,22 @@ public sealed class XmlImporter
 
             // Follow the contract path explicitly so similarly named elements elsewhere cannot be mistaken for vouchers.
             var collection = root.Elements().FirstOrDefault(e => e.Name.LocalName == "BODY")?.Elements().FirstOrDefault(e => e.Name.LocalName == "DATA")?.Elements().FirstOrDefault(e => e.Name.LocalName == "COLLECTION");
-            var vouchers = new List<Voucher>();
-            if (collection is not null)
-            {
-                if (collection.Elements().Any(e => e.Name.LocalName != "VOUCHER"))
-                    warnings.Add("Unknown collection nodes were retained in the raw source but not normalized.");
+            if (collection is null)
+                throw new InvalidDataException("Unsupported ENVELOPE structure. Expected BODY/DATA/COLLECTION.");
 
-                foreach (var node in collection.Elements().Where(e => e.Name.LocalName == "VOUCHER"))
-                {
-                    var index = vouchers.Count;
-                    var unknown = HasUnknownChildren(node, NormalizedChildren["VOUCHER"]);
-                    var vw = unknown ? new List<string> { "Unknown voucher nodes were retained in the raw source but not normalized." } : [];
-                    // Select direct voucher children only; nested AMOUNT/DATE nodes belong to their own entries.
-                    vouchers.Add(new(new { voucherIndex = index }, new { VCHTYPE = Attr(node, "VCHTYPE"), ACTION = Attr(node, "ACTION") }, Child(node, "DATE"), Child(node, "VOUCHERTYPENAME"), Child(node, "VOUCHERNUMBER"), Child(node, "PARTYLEDGERNAME"), Child(node, "NARRATION"),
-                        node.Elements().Where(e => e.Name.LocalName is "ALLLEDGERENTRIES.LIST" or "LEDGERENTRIES.LIST").Select(ParseLedger).ToList(),
-                        node.Elements().Where(e => e.Name.LocalName == "ALLINVENTORYENTRIES.LIST").Select(ParseInventory).ToList(), vw));
-                }
+            var vouchers = new List<Voucher>();
+            if (collection.Elements().Any(e => e.Name.LocalName != "VOUCHER"))
+                warnings.Add("Unknown collection nodes were retained in the raw source but not normalized.");
+
+            foreach (var node in collection.Elements().Where(e => e.Name.LocalName == "VOUCHER"))
+            {
+                var index = vouchers.Count;
+                var unknown = HasUnknownChildren(node, NormalizedChildren["VOUCHER"]);
+                var vw = unknown ? new List<string> { "Unknown voucher nodes were retained in the raw source but not normalized." } : [];
+                // Select direct voucher children only; nested AMOUNT/DATE nodes belong to their own entries.
+                vouchers.Add(new(new { voucherIndex = index }, new { VCHTYPE = Attr(node, "VCHTYPE"), ACTION = Attr(node, "ACTION") }, Child(node, "DATE"), Child(node, "VOUCHERTYPENAME"), Child(node, "VOUCHERNUMBER"), Child(node, "PARTYLEDGERNAME"), Child(node, "NARRATION"),
+                    node.Elements().Where(e => e.Name.LocalName is "ALLLEDGERENTRIES.LIST" or "LEDGERENTRIES.LIST").Select(ParseLedger).ToList(),
+                    node.Elements().Where(e => e.Name.LocalName == "ALLINVENTORYENTRIES.LIST").Select(ParseInventory).ToList(), vw));
             }
             return new("voucherExport", EncodingName(encoding), warnings, [], vouchers, null);
         }
