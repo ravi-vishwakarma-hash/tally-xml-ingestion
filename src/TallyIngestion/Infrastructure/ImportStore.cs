@@ -17,11 +17,11 @@ public sealed class ImportStore(string provider, string? connectionString) : IIm
     private readonly SemaphoreSlim memoryLock = new(1, 1);
     // Provider selection keeps ephemeral local runs separate from durable SQL Server storage.
     private bool IsInMemory => provider.Equals("InMemory", StringComparison.OrdinalIgnoreCase);
-    private SqlConnection Open()
+    private async Task<SqlConnection> OpenAsync(CancellationToken cancellationToken = default)
     {
         // Each operation uses its own connection; SQL Server connection pooling reuses the physical connection.
         var connection = new SqlConnection(connectionString);
-        connection.Open();
+        await connection.OpenAsync(cancellationToken);
         return connection;
     }
     /// <summary>Creates tables and the unique exact-content hash constraint.</summary>
@@ -32,15 +32,15 @@ public sealed class ImportStore(string provider, string? connectionString) : IIm
             throw new InvalidOperationException($"Unsupported storage provider '{provider}'.");
 
         // The unique hash index is the final database-level guard against duplicate uploads.
-        const string schema = "IF OBJECT_ID(N'dbo.Imports',N'U') IS NULL BEGIN CREATE TABLE dbo.Imports(Id nvarchar(32) NOT NULL PRIMARY KEY, Hash char(64) NOT NULL UNIQUE, DocumentType nvarchar(32) NOT NULL, Status nvarchar(16) NOT NULL, Encoding nvarchar(32) NOT NULL, Summary nvarchar(max) NOT NULL, Warnings nvarchar(max) NOT NULL, Errors nvarchar(max) NOT NULL, TallyResponse nvarchar(max) NULL, Raw varbinary(max) NOT NULL); CREATE TABLE dbo.Vouchers(ImportId nvarchar(32) NOT NULL REFERENCES dbo.Imports(Id) ON DELETE CASCADE, SourceIndex int NOT NULL, Json nvarchar(max) NOT NULL, CONSTRAINT PK_Vouchers PRIMARY KEY(ImportId,SourceIndex)); END";
-        await using var connection = Open();
+        const string schema = "IF OBJECT_ID(N'dbo.Imports',N'U') IS NULL CREATE TABLE dbo.Imports(Id nvarchar(32) NOT NULL PRIMARY KEY, Hash char(64) NOT NULL UNIQUE, DocumentType nvarchar(32) NOT NULL, Status nvarchar(16) NOT NULL, Encoding nvarchar(32) NOT NULL, Summary nvarchar(max) NOT NULL, Warnings nvarchar(max) NOT NULL, Errors nvarchar(max) NOT NULL, TallyResponse nvarchar(max) NULL, Raw varbinary(max) NOT NULL); IF OBJECT_ID(N'dbo.Vouchers',N'U') IS NULL CREATE TABLE dbo.Vouchers(ImportId nvarchar(32) NOT NULL REFERENCES dbo.Imports(Id) ON DELETE CASCADE, SourceIndex int NOT NULL, Json nvarchar(max) NOT NULL, CONSTRAINT PK_Vouchers PRIMARY KEY(ImportId,SourceIndex));";
+        await using var connection = await OpenAsync();
         await connection.ExecuteAsync(schema);
     }
     /// <summary>Saves a parsed import atomically, returning the prior record for identical bytes.</summary>
     public async Task<SaveResult> SaveAsync(ParsedImport p, byte[] raw, string hash, CancellationToken ct)
     {
         if (IsInMemory) return await SaveInMemoryAsync(p, raw, hash, ct);
-        await using var c = Open();
+        await using var c = await OpenAsync(ct);
         // Serializable isolation plus key-range locks makes the check-and-insert safe for simultaneous uploads.
         await using var tx = (SqlTransaction)await c.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         var existing = await c.QuerySingleOrDefaultAsync<ExistingImport>(new CommandDefinition("SELECT Id,DocumentType,Status,Summary FROM dbo.Imports WITH (UPDLOCK,HOLDLOCK) WHERE Hash=@Hash", new { Hash = hash }, tx, cancellationToken: ct));
@@ -53,7 +53,7 @@ public sealed class ImportStore(string provider, string? connectionString) : IIm
         }
         // Summaries are stored separately so import details never need to read the private raw payload.
         var id = Guid.NewGuid().ToString("N"); var summary = new { vouchers = p.Vouchers.Count, ledgerEntries = p.Vouchers.Sum(v => v.LedgerEntries.Count), inventoryEntries = p.Vouchers.Sum(v => v.InventoryEntries.Count), warnings = p.Warnings.Count + p.Vouchers.Sum(v => v.Warnings.Count), errors = p.Errors.Count };
-        await c.ExecuteAsync(new CommandDefinition("INSERT INTO dbo.Imports(Id,Hash,DocumentType,Status,Encoding,Summary,Warnings,Errors,TallyResponse,Raw) VALUES(@Id,@Hash,@Type,'completed',@Encoding,@Summary,@Warnings,@Errors,@Tally,@Raw)", new { Id = id, Hash = hash, Type = p.DocumentType, Encoding = p.Encoding, Summary = JsonSerializer.Serialize(summary), Warnings = JsonSerializer.Serialize(p.Warnings), Errors = JsonSerializer.Serialize(p.Errors), Tally = p.TallyResponse is null ? (object?)null : JsonSerializer.Serialize(p.TallyResponse), Raw = raw }, tx, cancellationToken: ct));
+        await c.ExecuteAsync(new CommandDefinition("INSERT INTO dbo.Imports(Id,Hash,DocumentType,Status,Encoding,Summary,Warnings,Errors,TallyResponse,Raw) VALUES(@Id,@Hash,@Type,'completed',@Encoding,@Summary,@Warnings,@Errors,@Tally,@Raw)", new { Id = id, Hash = hash, Type = p.DocumentType, Encoding = p.Encoding, Summary = JsonSerializer.Serialize(summary), Warnings = JsonSerializer.Serialize(p.Warnings), Errors = JsonSerializer.Serialize(p.Errors), Tally = p.TallyResponse is null ? (object?)null : JsonSerializer.Serialize(p.TallyResponse, JsonOptions), Raw = raw }, tx, cancellationToken: ct));
         // Replace the parser's placeholder source values with stable import identity before persisting each voucher.
         var voucherRows = p.Vouchers.Select((v, i) => { var normalized = v with { Source = new { importId = id, contentHash = hash, voucherIndex = i } }; return new { ImportId = id, SourceIndex = i, Json = JsonSerializer.Serialize(normalized, JsonOptions) }; }).ToArray();
         if (voucherRows.Length > 0) await c.ExecuteAsync(new CommandDefinition("INSERT INTO dbo.Vouchers(ImportId,SourceIndex,Json) VALUES(@ImportId,@SourceIndex,@Json)", voucherRows, tx, cancellationToken: ct));
@@ -119,7 +119,7 @@ public sealed class ImportStore(string provider, string? connectionString) : IIm
             finally { memoryLock.Release(); }
         }
 
-        await using var connection = Open();
+        await using var connection = await OpenAsync(ct);
         var record = await connection.QuerySingleOrDefaultAsync<ImportDetailRow>(new CommandDefinition(
             "SELECT Id,Hash,DocumentType,Status,Encoding,Summary,Warnings,Errors,TallyResponse FROM dbo.Imports WHERE Id=@Id",
             new { Id = id }, cancellationToken: ct));
@@ -155,7 +155,7 @@ public sealed class ImportStore(string provider, string? connectionString) : IIm
             finally { memoryLock.Release(); }
         }
 
-        await using var connection = Open();
+        await using var connection = await OpenAsync(ct);
         var exists = await connection.ExecuteScalarAsync<int?>(new CommandDefinition(
             "SELECT 1 FROM dbo.Imports WHERE Id=@Id", new { Id = id }, cancellationToken: ct));
         if (exists is null) return null;

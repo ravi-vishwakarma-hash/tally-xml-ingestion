@@ -82,7 +82,38 @@ public sealed class XmlImporterTests
 
         Assert.Single(parsed.Vouchers);
         Assert.Empty(parsed.Vouchers[0].LedgerEntries);
-        Assert.NotEmpty(parsed.Warnings);
+        Assert.Empty(parsed.Warnings);
+        Assert.NotEmpty(parsed.Vouchers[0].Warnings);
+    }
+
+    [Fact]
+    public void UnknownNestedAndResponseNodesAreReportedAtTheirOwningScope()
+    {
+        // Nested custom fields belong in the voucher warning, while response-level extensions are import-wide.
+        var voucherXml = Encoding.UTF8.GetBytes(
+            "<ENVELOPE><BODY><DATA><COLLECTION><VOUCHER><ALLLEDGERENTRIES.LIST><LEDGERNAME>Cash</LEDGERNAME><AMOUNT>1.00</AMOUNT><CUSTOMFIELD>x</CUSTOMFIELD></ALLLEDGERENTRIES.LIST></VOUCHER></COLLECTION></DATA></BODY></ENVELOPE>");
+        var responseXml = Encoding.UTF8.GetBytes("<RESPONSE><CREATED>1</CREATED><CUSTOMRESULT>kept</CUSTOMRESULT></RESPONSE>");
+
+        var voucherImport = importer.Parse(voucherXml);
+        var responseImport = importer.Parse(responseXml);
+
+        Assert.Single(voucherImport.Vouchers[0].Warnings);
+        Assert.Empty(voucherImport.Warnings);
+        Assert.Single(responseImport.Warnings);
+        Assert.Empty(responseImport.Vouchers);
+    }
+
+    [Fact]
+    public void InvalidXmlNumericReferencesAreRemovedAndLegalWhitespaceReferencesRemain()
+    {
+        // XML 1.0 excludes NUL, surrogate, and FFFE references, but permits tab and carriage return references.
+        var xml = Encoding.UTF8.GetBytes(
+            "<ENVELOPE><BODY><DATA><COLLECTION><VOUCHER><NARRATION>bad &#0; &#xD800; &#65534; good&#9;tab&#13;end</NARRATION></VOUCHER></COLLECTION></DATA></BODY></ENVELOPE>");
+
+        var parsed = importer.Parse(xml);
+
+        Assert.Single(parsed.Warnings);
+        Assert.Equal("bad    good\ttab\rend", parsed.Vouchers[0].Narration);
     }
 
     [Fact]

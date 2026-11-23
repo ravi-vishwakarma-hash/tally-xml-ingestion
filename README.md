@@ -45,6 +45,10 @@ dotnet run --project src/TallyIngestion
 
 For SQL Server authentication, set `ConnectionStrings:Tally` to your server, database, user ID, and password with the same `dotnet user-secrets set` command; the secret stays outside the repository. User Secrets are for local development only. Configure deployment credentials through the environment or a managed secret store. On startup the service creates its `dbo.Imports` and `dbo.Vouchers` tables if absent. SQL Server mode retains exact raw uploads and atomically enforces a unique SHA-256 hash; it is required when imports must survive restarts.
 
+### SQL schema setup and upgrades
+
+Create the `TallyIngestion` database first, then use the User Secrets commands above and start the service with `dotnet run --project src/TallyIngestion`. Startup performs an idempotent schema bootstrap: `dbo.Imports` stores import metadata, diagnostics, Tally response JSON, the unique SHA-256 hash, and the exact raw bytes; `dbo.Vouchers` stores ordered normalized voucher JSON with a foreign key to its import. Nested arrays stay inside the voucher JSON so their parent ownership and source order remain inspectable. There is no separate migration command in this take-home version. For a schema change after deployment, apply a versioned SQL migration before starting the updated service; the automatic bootstrap only creates missing tables and does not alter existing ones.
+
 Open `TallyIngestion.sln` in Visual Studio or another .NET IDE to work with both projects. Run tests with `dotnet test TallyIngestion.sln`.
 
 ## OpenAPI and Scalar docs
@@ -86,6 +90,6 @@ Stream the request to a temporary encrypted object while incrementally hashing e
 
 ## Scope and delivery notes
 
-Required API, XML ownership, exact-byte idempotency in SQL Server mode, encoding recovery, Tally response result, and core parser fixture tests are implemented. The default in-memory mode is intentionally ephemeral and does not meet durable persistence requirements; select SQL Server for persistence. Optional per-voucher partial failure, streaming ingestion, concurrent-upload stress proof, rich unknown-subtree persistence, and alternate response envelope normalization are not implemented. The main production risk is bounded-memory processing; this version buffers uploads in memory within its configurable size cap.
+The required API, XML ownership, exact-byte idempotency in SQL Server mode, encoding recovery, Tally response result, unknown-node warnings, and core fixture tests are implemented. The requested in-memory default is intentionally ephemeral; select SQL Server to meet the assignment's durable persistence requirement. Optional extensions attempted: none. Per-voucher partial failure, streaming ingestion, a concurrent-upload stress test, richer unknown-subtree persistence, and alternate response-envelope normalization remain unimplemented. The main production risk is bounded-memory processing; this version buffers uploads in memory within its configurable size cap. SQL Server schema and transaction behavior are implemented but were not exercised against a live SQL Server during this verification.
 
-Approximate active time: record actual elapsed implementation time before submission. AI tools used: OpenAI Codex assisted with repository reading, implementation, and test authoring; review and verification should be completed by the candidate.
+Approximate active time: under 3 hours (candidate estimate). AI use: OpenAI Codex was used to read the requirements and code, identify and implement fixes, update documentation, and author behavioral tests. The requirements and fixtures were reread; parser and persistence code were reviewed against them; the .NET build and test suite were run. The candidate should review the final changes and be ready to explain the implementation and tradeoffs in the follow-up interview.
