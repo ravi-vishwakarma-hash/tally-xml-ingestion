@@ -24,4 +24,20 @@ public sealed class ApiResponseHandlerTests
         Assert.Equal("import_not_found", problem.Extensions["code"]);
         Assert.Equal("trace-123", problem.Extensions["traceId"]);
     }
+
+    [Fact]
+    public void RateLimitProblemUsesTooManyRequestsStatus()
+    {
+        // The upload limiter shares the same Problem Details builder and stable error-code extension.
+        var problem = ApiResponseHandler.CreateProblemDetails(
+            429,
+            "rate_limit_exceeded",
+            "Too many upload requests. Wait before retrying.",
+            "/api/tally/imports",
+            "trace-429");
+
+        Assert.Equal("Too Many Requests", problem.Title);
+        Assert.Equal(429, problem.Status);
+        Assert.Equal("rate_limit_exceeded", problem.Extensions["code"]);
+    }
 }

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.RateLimiting;
 using TallyIngestion.Application;
 using TallyIngestion.Models;
 
@@ -20,6 +21,7 @@ public static class ApiEndpoints
 
         endpoints.MapPost("/api/tally/imports", UploadAsync)
             .WithName("UploadTallyImport")
+            .RequireRateLimiting("tally-imports")
             .WithTags("Imports")
             .WithSummary("Upload and process a Tally XML document.")
             .WithDescription("Requires a filename ending in .xml and accepts an ENVELOPE voucher export or RESPONSE operation result as multipart/form-data using the required field named file. The XML bytes are validated independently of the filename and MIME type.")
@@ -28,7 +30,8 @@ public static class ApiEndpoints
             .Produces<UploadImportResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status415UnsupportedMediaType)
-            .ProducesProblem(StatusCodes.Status413PayloadTooLarge);
+            .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
         // Missing imports return the same structured error shape across both read routes.
         endpoints.MapGet("/api/tally/imports/{id}", async (string id, IImportStore store, HttpContext context, CancellationToken cancellationToken) =>

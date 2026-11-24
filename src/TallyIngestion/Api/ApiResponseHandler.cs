@@ -51,6 +51,7 @@ public static class ApiResponseHandler
         404 => "Not Found",
         413 => "Payload Too Large",
         415 => "Unsupported Media Type",
+        429 => "Too Many Requests",
         500 => "Internal Server Error",
         _ => "Request Failed"
     };

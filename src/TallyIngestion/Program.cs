@@ -1,4 +1,7 @@
+using System.Globalization;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.RateLimiting;
 using TallyIngestion.Api;
 using TallyIngestion.Application;
 using TallyIngestion.Infrastructure;
@@ -10,9 +13,49 @@ var builder = WebApplication.CreateBuilder(args);
 // Keep the upload limit configurable so deployments can control request memory and processing cost.
 var maxUploadBytes = builder.Configuration.GetValue<long>("MaxUploadBytes", 10 * 1024 * 1024);
 builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = maxUploadBytes + 1024 * 1024);
+var uploadPermitLimit = builder.Configuration.GetValue<int>("RateLimiting:Upload:PermitLimit", 10);
+var uploadWindowSeconds = builder.Configuration.GetValue<int>("RateLimiting:Upload:WindowSeconds", 60);
+if (uploadPermitLimit < 1 || uploadWindowSeconds < 1)
+{
+    throw new InvalidOperationException("RateLimiting:Upload:PermitLimit and WindowSeconds must be positive values.");
+}
+
 // Register ASP.NET Core's RFC 7807 response service for consistent application/problem+json output.
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddRateLimiter(options =>
+{
+    // Key upload permits by remote IP and reject immediately instead of queueing more memory-heavy requests.
+    options.AddPolicy("tally-imports", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = uploadPermitLimit,
+            Window = TimeSpan.FromSeconds(uploadWindowSeconds),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+
+    options.OnRejected = async (rejection, cancellationToken) =>
+    {
+        var httpContext = rejection.HttpContext;
+
+        // Surface the fixed-window reset time so clients can avoid retrying every request immediately.
+        if (rejection.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            httpContext.Response.Headers["Retry-After"] = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds))
+                .ToString(CultureInfo.InvariantCulture);
+        }
+
+        await ApiResponseHandler.Problem(
+            StatusCodes.Status429TooManyRequests,
+            "rate_limit_exceeded",
+            "Too many upload requests. Wait before retrying.",
+            httpContext.Request.Path,
+            httpContext.TraceIdentifier)
+            .ExecuteAsync(httpContext);
+    };
+});
 builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
 {
     document.Info.Title = "Tally XML Ingestion API";
@@ -40,6 +83,8 @@ var app = builder.Build();
 
 // Catch unhandled request exceptions before endpoint execution and serialize them with the shared ProblemDetails shape.
 app.UseExceptionHandler();
+app.UseRouting();
+app.UseRateLimiter();
 
 // Generate the OpenAPI v1 document and let Scalar render its interactive API reference.
 app.MapOpenApi();

@@ -33,7 +33,7 @@ dotnet build TallyIngestion.sln
 dotnet run --project src/TallyIngestion
 ```
 
-The default storage provider is `InMemory`; data is cleared when the process stops. The upload limit defaults to 10 MiB and is configurable using `MaxUploadBytes`.
+The default storage provider is `InMemory`; data is cleared when the process stops. The upload limit defaults to 10 MiB and is configurable using `MaxUploadBytes`. Uploads are limited to 10 requests per remote IP per 60-second fixed window by default; configure `RateLimiting:Upload:PermitLimit` and `RateLimiting:Upload:WindowSeconds` to tune it. Excess requests receive `429` Problem Details with a `Retry-After` header. This limiter is per process; use a gateway or distributed limiter for multiple service instances, and configure trusted forwarded headers when running behind a proxy.
 
 ### SQL Server with .NET User Secrets
 
@@ -78,7 +78,7 @@ Upload returns 201 for a new import and 200 with `duplicate: true` for exact byt
 
 Only files with a `.xml` filename extension and supported Tally XML content are imported. The extension is checked case-insensitively, and the content is validated independently; the filename alone and the MIME type are not trusted. PDF, legacy Word `.doc`, Word Open XML `.docx`, plain text, and other non-XML content return `415` with code `unsupported_file_type`. Malformed XML or XML that does not use a supported document shape returns `400` with code `invalid_xml`.
 
-API errors use the standard `application/problem+json` Problem Details shape (`type`, `title`, `status`, `detail`, and `instance`). The `code` extension provides a stable machine-readable application error such as `invalid_xml`, `unsupported_file_type`, or `import_not_found`.
+API errors use the standard `application/problem+json` Problem Details shape (`type`, `title`, `status`, `detail`, and `instance`). The `code` extension provides a stable machine-readable application error such as `invalid_xml`, `unsupported_file_type`, `rate_limit_exceeded`, or `import_not_found`.
 
 ## Data and design
 
@@ -86,7 +86,7 @@ In-memory mode stores imports for the lifetime of the process and is intended on
 
 The XML reader prohibits DTDs and external resolution, limits parsed document characters, and never executes source content. UTF-8, UTF-8 BOM, and UTF-16 BOM are supported. Illegal XML 1.0 numeric control references are removed before parsing and reported as an import warning; the raw upload is retained unchanged. Unknown voucher children are retained in the raw source and reported as warnings.
 
-For production, raw bytes should move to encrypted object storage with narrow access controls and documented retention/cleanup. Add request rate limits, authentication, metrics, structured operational logging that excludes XML, and versioned SQL Server migrations.
+For production, raw bytes should move to encrypted object storage with narrow access controls and documented retention/cleanup. Add authentication, metrics, structured operational logging that excludes XML, and versioned SQL Server migrations.
 
 ## 500 MB production ingestion
 
