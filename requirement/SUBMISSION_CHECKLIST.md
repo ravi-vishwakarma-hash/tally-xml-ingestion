@@ -2,7 +2,7 @@
 
 Before submitting, please confirm:
 
-- [x] I stopped at or before 6 hours and recorded my approximate active time (candidate estimate: under 3 hours).
+- [x] I stopped at or before 6 hours and recorded my approximate active time (candidate estimate: under 6 hours).
 - [x] `GET /health` works.
 - [x] `POST /api/tally/imports` accepts multipart field `file`.
 - [x] `GET /api/tally/imports/{importId}` returns import details.
