@@ -94,6 +94,13 @@ builder.Services.AddSingleton(new UploadOptions(maxUploadBytes));
 
 var app = builder.Build();
 
+// Add HSTS in production and redirect local HTTP requests before reaching API endpoints.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+app.UseHttpsRedirection();
+
 // Catch unhandled request exceptions before endpoint execution and serialize them with the shared ProblemDetails shape.
 app.UseExceptionHandler();
 app.UseRouting();

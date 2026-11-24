@@ -2,11 +2,11 @@
   "info": {
     "_postman_id": "bfa4240e-0740-4e02-ad68-8b920d0fae11",
     "name": "Tally XML Ingestion API",
-    "description": "Explore the Tally XML ingestion API. Set baseUrl to the running service (default http://localhost:5000). Upload the sanitized fixture with the multipart field named file, then use the returned importId for the read requests. No authentication is configured. Error examples use RFC 7807 Problem Details with an application code extension.",
+    "description": "Explore the Tally XML ingestion API. Set baseUrl to the running service (default https://localhost:5001). Upload the sanitized fixture with the multipart field named file, then use the returned importId for the read requests. No authentication is configured. Error examples use RFC 7807 Problem Details with an application code extension.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "baseUrl", "value": "https://localhost:5001" },
     { "key": "importId", "value": "replace-with-import-id" }
   ],
   "item": [

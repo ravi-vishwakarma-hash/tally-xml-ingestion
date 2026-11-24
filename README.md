@@ -29,9 +29,12 @@ NuGet package versions are centralized in `Directory.Packages.props`; project fi
 Requires the .NET 10 SDK. In-memory storage is the default for local development:
 
 ```powershell
+dotnet dev-certs https --trust
 dotnet build TallyIngestion.sln
 dotnet run --project src/TallyIngestion
 ```
+
+The launch profile serves HTTPS at `https://localhost:5001`; HTTP on port 5000 redirects to HTTPS. Use the HTTPS URL for uploads so request bodies are encrypted in transit. HSTS is enabled outside Development. When serving Kestrel directly in production, configure an HTTPS endpoint and certificate through a secret store. When deploying behind a TLS-terminating proxy, configure trusted forwarded headers and enforce HTTPS at that proxy.
 
 The default storage provider is `InMemory`; data is cleared when the process stops. The upload limit defaults to 10 MiB and is configurable using `MaxUploadBytes`. Uploads are limited to 10 requests per remote IP per 60-second fixed window by default. The two read endpoints have a separate limit of 60 requests per remote IP per 60 seconds. Configure `RateLimiting:Upload` and `RateLimiting:Read` to tune these policies. Excess requests receive `429` Problem Details with a `Retry-After` header. The limiter is per process; use a gateway or distributed limiter for multiple service instances, and configure trusted forwarded headers when running behind a proxy.
 
@@ -55,23 +58,23 @@ Open `TallyIngestion.sln` in Visual Studio or another .NET IDE to work with both
 
 ## OpenAPI and Scalar docs
 
-After starting the service, open the Scalar API reference at `http://localhost:5000/docs`. The generated OpenAPI JSON is at `http://localhost:5000/openapi/v1.json`. The document describes the multipart `file` field, success and error status codes, import details, normalized voucher routes, and health check.
+After starting the service, open the Scalar API reference at `https://localhost:5001/docs`. The generated OpenAPI JSON is at `https://localhost:5001/openapi/v1.json`. The document describes the multipart `file` field, success and error status codes, import details, normalized voucher routes, and health check.
 
 ### Postman
 
 Import [Tally-XML-Ingestion.postman_collection.json](postman/Tally-XML-Ingestion.postman_collection.json) into Postman. The collection is grouped by Health and Imports and includes saved examples for successful uploads, duplicate uploads, normalized results, and common errors. It does not contain credentials; this API currently has no authentication requirement.
 
-Set the collection variable `baseUrl` to the service URL if it differs from `http://localhost:5000`. In **Upload Tally XML**, choose the sanitized `requirement/fixtures/01_receipt_with_allocations.xml` file for the `file` form-data field (Postman may ask you to select the local file after import). The upload test stores the returned `importId` in a collection variable, which the two read requests use automatically. To try the Tally business failure case, upload `requirement/fixtures/03_tally_error_response.xml`; the HTTP import still completes successfully and its business result appears under `tallyResponse`.
+Set the collection variable `baseUrl` to the service URL if it differs from `https://localhost:5001`. In **Upload Tally XML**, choose the sanitized `requirement/fixtures/01_receipt_with_allocations.xml` file for the `file` form-data field (Postman may ask you to select the local file after import). The upload test stores the returned `importId` in a collection variable, which the two read requests use automatically. To try the Tally business failure case, upload `requirement/fixtures/03_tally_error_response.xml`; the HTTP import still completes successfully and its business result appears under `tallyResponse`.
 
 The API uses JSON responses with `Accept: application/json`; errors use `application/problem+json` and include a stable `code` extension. Upload requests must be `multipart/form-data` with a non-empty `file` field. There are no query parameters or authentication headers. The only path parameter is `importId` on the two import read routes. No secrets or production data are included in the examples.
 
 ## API
 
 ```powershell
-curl.exe -F "file=@requirement/fixtures/01_receipt_with_allocations.xml" http://localhost:5000/api/tally/imports
-curl.exe http://localhost:5000/api/tally/imports/{importId}
-curl.exe http://localhost:5000/api/tally/imports/{importId}/vouchers
-curl.exe http://localhost:5000/health
+curl.exe -F "file=@requirement/fixtures/01_receipt_with_allocations.xml" https://localhost:5001/api/tally/imports
+curl.exe https://localhost:5001/api/tally/imports/{importId}
+curl.exe https://localhost:5001/api/tally/imports/{importId}/vouchers
+curl.exe https://localhost:5001/health
 ```
 
 Upload returns 201 for a new import and 200 with `duplicate: true` for exact bytes already stored. `ENVELOPE` voucher exports and `RESPONSE` operation results are supported. Business failure reported by Tally does not change successful document processing status. Invalid input produces a structured 4xx response.
