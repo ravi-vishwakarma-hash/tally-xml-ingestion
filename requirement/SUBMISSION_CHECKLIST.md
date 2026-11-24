@@ -25,7 +25,7 @@ Before submitting, please confirm:
 - [x] Incomplete work and next steps are stated honestly.
 - [x] AI tool usage is disclosed.
 
-Verification notes: the .NET 10 build succeeded and all 27 tests passed. The SQL Server implementation was not exercised against a live database. HTTPS redirection is configured, but an end-to-end HTTPS/HSTS check still requires a valid local development certificate (`dotnet dev-certs https --trust`). SQL Server and HTTPS runtime verification should be completed in the target environment before submission.
+Verification notes: the .NET 10 build succeeded and all 27 tests passed. The configured SQL Server database name is `TallyIngestion`, while the application defaults to in-memory storage. The SQL Server implementation was not exercised against a live database. HTTPS redirection is configured, but an end-to-end HTTPS/HSTS check still requires a valid local development certificate (`dotnet dev-certs https --trust`). SQL Server and HTTPS runtime verification should be completed in the target environment before submission.
 
 Optional extensions:
 
