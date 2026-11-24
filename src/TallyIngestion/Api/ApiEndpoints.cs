@@ -39,22 +39,26 @@ public static class ApiEndpoints
                 ? ApiResponseHandler.Ok(details)
                 : ApiResponseHandler.Problem(404, "import_not_found", "The requested import was not found.", context.Request.Path))
             .WithName("GetTallyImport")
+            .RequireRateLimiting("tally-reads")
             .WithTags("Imports")
             .WithSummary("Get import details and processing diagnostics.")
             .WithDescription("Returns status, encoding, exact-byte SHA-256, summary, warnings, errors, and Tally business result when applicable. Raw XML is never returned.")
             .Produces<ImportDetailsResponse>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
         endpoints.MapGet("/api/tally/imports/{id}/vouchers", async (string id, IImportStore store, HttpContext context, CancellationToken cancellationToken) =>
             await store.GetVouchersAsync(id, cancellationToken) is { } vouchers
                 ? ApiResponseHandler.Ok(vouchers)
                 : ApiResponseHandler.Problem(404, "import_not_found", "The requested import was not found.", context.Request.Path))
             .WithName("GetNormalizedTallyVouchers")
+            .RequireRateLimiting("tally-reads")
             .WithTags("Imports")
             .WithSummary("List normalized vouchers for an import.")
             .WithDescription("Returns ordered voucher items and a count. Tally response documents return an empty item list.")
             .Produces<VoucherListResponse>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
         return endpoints;
     }

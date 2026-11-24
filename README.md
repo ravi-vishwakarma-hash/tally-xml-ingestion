@@ -33,7 +33,7 @@ dotnet build TallyIngestion.sln
 dotnet run --project src/TallyIngestion
 ```
 
-The default storage provider is `InMemory`; data is cleared when the process stops. The upload limit defaults to 10 MiB and is configurable using `MaxUploadBytes`. Uploads are limited to 10 requests per remote IP per 60-second fixed window by default; configure `RateLimiting:Upload:PermitLimit` and `RateLimiting:Upload:WindowSeconds` to tune it. Excess requests receive `429` Problem Details with a `Retry-After` header. This limiter is per process; use a gateway or distributed limiter for multiple service instances, and configure trusted forwarded headers when running behind a proxy.
+The default storage provider is `InMemory`; data is cleared when the process stops. The upload limit defaults to 10 MiB and is configurable using `MaxUploadBytes`. Uploads are limited to 10 requests per remote IP per 60-second fixed window by default. The two read endpoints have a separate limit of 60 requests per remote IP per 60 seconds. Configure `RateLimiting:Upload` and `RateLimiting:Read` to tune these policies. Excess requests receive `429` Problem Details with a `Retry-After` header. The limiter is per process; use a gateway or distributed limiter for multiple service instances, and configure trusted forwarded headers when running behind a proxy.
 
 ### SQL Server with .NET User Secrets
 

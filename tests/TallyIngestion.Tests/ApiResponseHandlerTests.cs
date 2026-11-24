@@ -32,7 +32,7 @@ public sealed class ApiResponseHandlerTests
         var problem = ApiResponseHandler.CreateProblemDetails(
             429,
             "rate_limit_exceeded",
-            "Too many upload requests. Wait before retrying.",
+            "Too many requests. Wait before retrying.",
             "/api/tally/imports",
             "trace-429");
 
